@@ -1,3 +1,27 @@
+/* 
+ * Author : Benet Manzanares Salor
+ * 
+ * Date : 20 / 1 / 2019
+ * 
+ * Description: 
+ * 	A program to compare the execution time between CUDA execution and CPU execution.
+ * 	Specifically, after check the parameters, inicialization and choose between CUDA or CPU,
+ *  the program do a work (loop/s, operations ...) for every element of an array and 
+ * 	indicate the execution time.
+ * 
+ * 	At the CUDA call, the configuration priority is : 
+ * 		CUDA_THREADS (multiple of 32 if is possible) > CUDA_BLOCKS (at least 1 ) > ChargePerThread
+ * 
+ * 	This code only test one thread of CPU, to use multiple threads you need to use the
+ *  CPUVersion ( locate at the CPUVerison folder ).
+ * 
+ * Parameters:
+ * 	Number of elements : Length of the array to do the work
+ * 	Option : Choose between CUDA or CPU
+ * 		0 -> CPU || !=0 -> CUDA
+ *  	
+ */
+
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
@@ -8,7 +32,7 @@
 #include <math.h>
 
 /**********************		CONSTANTS		**********************/
-#define NUM_PARAMS 2		// #elements and option ( 0 = CPU , !=0 = CUDA )
+#define NUM_PARAMS 2
 #define WORK_ITERATIONS 1000
 
 #define CPU_THREADS 8
@@ -32,7 +56,7 @@ int CUDA_BLOCKS;
 int chargePerThread;
 
 /**********************		METHODS		**********************/
-bool ParamsIniAndControl(int na, char* arg[]);
+bool CorrectParameters(int na, char* arg[]);
 
 void InicialitzeData();
 
@@ -44,12 +68,12 @@ void ResultControl();
 
 void FreeData();
 
-/**********************		MAIN		**********************/
+/**********		MAIN		**********/
 int main(int na, char* arg[])
 {
 	programResult = 0;
 
-	if(ParamsIniAndControl(na,arg))
+	if(CorrectParameters(na,arg))
 	{
 		InicialitzeData();
 
@@ -70,8 +94,16 @@ int main(int na, char* arg[])
 }
 
 
-/**********************	DATA CONTROL	**********************/
-bool ParamsIniAndControl(int na, char* arg[])
+/* CorrectParameters
+ *	Description:
+ * 		Check if the enter parameters of the programs are correct
+ *	Parameters:
+ * 		na : Number of arguments introduced by user
+ * 		arg : Reference of the table with arguments
+ * 	Return:
+ * 		True if all is correct 
+ */
+bool CorrectParameters(int na, char* arg[])
 {
 	if (na != NUM_PARAMS + 1)
 	{
@@ -93,6 +125,12 @@ bool ParamsIniAndControl(int na, char* arg[])
 	return ( programResult == 0 );
 }
 
+/* InicialitzeData 
+ *	Description:
+ *		Inicialize all the elements of the arrays used in the program with constant values.
+ * 		This arrays are directly use at the CPU execution and copyed 
+ * 		for the CUDA execution at the MyCudaMemInicialization method. * 
+ */
 void InicialitzeData()
 {
 	a = (float *)malloc(numElements * sizeof(float));
@@ -107,6 +145,10 @@ void InicialitzeData()
 	}
 }
 
+/* FreeData
+ *	Description: 
+ * 		Free the arrays used
+ */
 void FreeData()
 {
 	free(a);
@@ -114,6 +156,15 @@ void FreeData()
 	free(resultArray);
 }
 
+/* Calc
+ *	Description:
+ * 		Do the calculation for a element a and b.
+ * 	Parameters:
+ * 		a : first value
+ * 		b : second value
+ * 	Return:
+ * 		The final value of the operation to put it in the resultArray 
+ */
 float Calc(float a, float b)
 {
 	float result = a;
@@ -126,6 +177,8 @@ float Calc(float a, float b)
 
 	return result;
 }
+
+
 
 int NumOfFails()
 {
@@ -155,7 +208,7 @@ void ResultControl()
 		printf("Results : %i not corrects\n", notCorrects);
 }
 
-/**********************	CPU		**********************/
+/**********************		CPU 1 THREAD 	**********************/
 void CpuExecution()
 {
 	int i;
@@ -166,7 +219,7 @@ void CpuExecution()
 }
 
 
-/**********************	CUDA	**********************/
+/**********************		CUDA	**********************/
 __device__ float CalcCUDA(float a, float b)
 {
 	float result = a;
@@ -200,7 +253,7 @@ __global__ void DoCudaWork(int chargePerThread, float* c_a, float* c_b, int numE
 
 void MyCudaMemInicialization()
 {
-	/***********	MEMORY ALLOC AND CPY	***********/
+	//	Memory allocation and copy
 	cudaMalloc(&c_a, numElements * sizeof(float));
 	cudaMalloc(&c_b, numElements * sizeof(float));
 	cudaMemcpy(c_a, a, numElements*sizeof(float), cudaMemcpyHostToDevice);
@@ -234,7 +287,7 @@ void CudaChargeControl()
 	chargePerThread = numElements / (CUDA_THREADS * CUDA_BLOCKS);
 	if (chargePerThread == 0) chargePerThread = 1;
 
-	//Control manage all the elements incrementing charge per thread
+	// Control manage all the elements incrementing charge per thread
 	while (numElements > (CUDA_THREADS * CUDA_BLOCKS * chargePerThread)) 
 	{
 		chargePerThread++;
